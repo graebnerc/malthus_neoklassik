@@ -1,5 +1,6 @@
 library(shiny)
 library(ggplot2)
+library(dplyr)
 library(latex2exp)
 library(magrittr)
 library(ggpubr)
@@ -12,9 +13,9 @@ ui <- fluidPage(
        checkboxInput("compa_cases", "Komparativ-statische Analyse?", value = F),
        h3("Ausgangsszenario"),
        sliderInput("N_0", 
-                   label='Bevölkerungsniveau \\( N_0 \\)',
+                   label='Ausgangsniveau Bevölkerung \\( N_0 \\)',
                    min = 0.25, max = 2, step=0.05, value = 1.0),
-       helpText("Startwert Faktor Bevölkerung (endogen)"),
+       helpText("StarAusgangsniveauwert Faktor Bevölkerung (endogen)"),
        sliderInput("L_0", 
                    label='Parameter \\( L_0 \\)',
                  min = 0.5, max = 1.5, step=0.1, value = 1.0),
@@ -39,9 +40,9 @@ ui <- fluidPage(
          h3("Alternativszenario"),
          condition = "input.compa_cases==1",
          sliderInput("N_2", 
-                     label='Bevölkerungsniveau \\( N_2 \\)',
+                     label='Ausgangsniveau Bevölkerung \\( N_2 \\)',
                      min = 0.25, max = 2, step=0.05, value = 1.0),
-         helpText("Startwert Faktor Bevölkerung (endogen)"),
+         helpText("Ausgangsniveau Faktor Bevölkerung (endogen)"),
          sliderInput("L_2", 
                      label='Parameter \\( L_2 \\)',
                      min = 0.5, max = 1.5, step=0.1, value = 1.0),
@@ -75,7 +76,10 @@ ui <- fluidPage(
            downloadButton("downloadPlot", "Download der Abbildungen im PDF Format"),
            p("Dabei ergeben sich folgende Gleichgewichtswerte:"),
            tableOutput("equil_values"),
-       p("Eine genaue Beschreibung des Modelles und der Implementierung in R finden Sie im Begleitdokument (Moodle oder auf Github im Ordner `beschreibung`).")
+           h3("Beschreibung des Modells"),
+       p("Eine genaue Beschreibung des Modelles und der Implementierung in R finden Sie im Begleitdokument (Moodle oder auf Github im Ordner 'beschreibung')."),
+       h3("Benutzung der App"),
+       p("Parameterwerte können auf der linken Seite geändert werden. Wenn Sie zwei Gleichgewichte in einer komparativ-statischen Analyse vergleichen wollen setzen Sie den Haken bei 'Komparativ-statische Analyse'. Dann können Sie mehrere Szenarien grafisch und quantitativ vergleichen. Der Download Button unter der Abbildung erlaubt Ihnen die aktuelle Version der Abbildungen als PDF herunterzuladen.")
        )
      )
    )
@@ -402,57 +406,149 @@ server <- function(input, output) {
     population_plot()
   })
   
-  output$equil_values <- renderTable({
-    birth_rate <- input$birth_rate
-    death_rate <- function(consumption){input$death_rate-log(consumption)}
-    g_c <- function(consumption, birthrate){birthrate - death_rate(consumption)}
-    G_c <- function(consumption, birthrate){1 + g_c(consumption, birthrate)}
-    
-    L_0 <- input$L_0
-    N_0 <- input$N_0
-    tfp <- input$tfp
-    alpha_used <- input$alpha_used
-    
-    get_c_ss <- function(birth_rate){
-      g_c_1 <- function(consumption, birthrate){G_c(consumption, birthrate) - 1}
-      uniroot(g_c_1, interval = c(0, 10), extendInt = "yes", birthrate=birth_rate)$root
-    }
-    c_ss <- get_c_ss(birth_rate)
-    
-    interval_check <- seq(0, 2, 0.05)
-    
-    total_consumption <- function(pop_total, consumption_total){
-      pop_total*consumption_total
-    }
-    
-    n_ss <- uniroot(function(x) total_consumption(
-      x, consumption_total=c_ss)-production(
-        population=x, 
+  equil_values <- reactive({
+    if(input$compa_cases){
+      L_0 <- input$L_0
+      L_2 <- input$L_2
+      N_0 <- input$N_0
+      N_2 <- input$N_2
+      tfp <- input$tfp
+      tfp_2 <- input$tfp_2
+      alpha_used <- input$alpha_used
+      alpha_used_2 <- input$alpha_used_2
+      
+      birth_rate <- input$birth_rate
+      birth_rate_2 <- input$birth_rate_2
+      death_rate <- function(consumption){input$death_rate-log(consumption)}
+      death_rate_2 <- function(consumption){input$death_rate_2-log(consumption)}
+      g_c <- function(consumption, birthrate){birthrate - death_rate(consumption)}
+      g_c_2 <- function(consumption, birthrate){birth_rate_2 - death_rate_2(consumption)}
+      G_c <- function(consumption, birthrate){1 + g_c(consumption, birthrate)}
+      G_c_2 <- function(consumption, birthrate){1 + g_c_2(consumption, birthrate)}
+      
+      get_c_ss <- function(birth_rate){
+        g_c_1 <- function(consumption, birthrate){G_c(consumption, birthrate) - 1}
+        uniroot(g_c_1, interval = c(0, 10), extendInt = "yes", birthrate=birth_rate)$root
+      }
+      
+      get_c_ss_new <- function(birth_rate){
+        g_c_1 <- function(consumption, birthrate){G_c_2(consumption, birthrate) - 1}
+        uniroot(g_c_1, interval = c(0, 10), extendInt = "yes", birthrate=birth_rate_2)$root
+      }
+      
+      get_w_ss <- function(alpha_values, y_t, n_t){
+        (1-alpha_values) * (y_t/n_t)
+      }
+      
+      get_r_ss <- function(alpha_values, y_t, l_t){
+        alpha_values*(y_t/l_t)
+      }
+      
+      c_ss <- get_c_ss(birth_rate)
+      c_ss_new <- get_c_ss_new(birth_rate_2)
+      
+      interval_check <- seq(0, 2, 0.05)
+      
+      total_consumption <- function(pop_total, consumption_total){
+        pop_total*consumption_total
+      }
+      
+      n_ss <- uniroot(function(x) total_consumption(
+        x, consumption_total=c_ss)-production(
+          population=x, 
+          total_factor_productivity=tfp, 
+          land=L_0, 
+          alpha_value = alpha_used), 
+        c(0.5, 1.5), extendInt = "yes")$root
+      
+      y_ss <- production(
+        population=n_ss, 
         total_factor_productivity=tfp, 
         land=L_0, 
-        alpha_value = alpha_used), 
-      c(0.5, 1.5), extendInt = "yes")$root
-    
-    y_ss <- production(
-      population=n_ss, 
-      total_factor_productivity=tfp, 
-      land=L_0, 
-      alpha_value = alpha_used)
-    
-    get_w_ss <- function(alpha_values, y_t, n_t){
-      (1-alpha_values) * (y_t/n_t)
-    }
-    
-    get_r_ss <- function(alpha_values, y_t, l_t){
-      alpha_values*(y_t/l_t)
-    }
-
-    w_ss <- get_w_ss(alpha_used, y_ss, n_ss)
-    r_ss <- get_r_ss(alpha_used, y_ss, L_0)
-    
-    data.frame(
-      Variable=c("Konsum", "Bevölkerung", "Produktion", "Lohn", "Landrente"),
-      Gleichgewichtswert=c(c_ss, n_ss, y_ss, w_ss, r_ss))
+        alpha_value = alpha_used)
+      
+      n_ss_new <- uniroot(function(x) total_consumption(
+        x, consumption_total=c_ss_new)-production(
+          population=x, 
+          total_factor_productivity=tfp_2, 
+          land=L_2, 
+          alpha_value = alpha_used_2), 
+        c(0.5, 1.5), extendInt = "yes")$root
+      
+      y_ss_new <- production(
+        population=n_ss_new, 
+        total_factor_productivity=tfp_2, 
+        land=L_2, 
+        alpha_value = alpha_used_2)
+      
+      w_ss <- get_w_ss(alpha_used, y_ss, n_ss)
+      r_ss <- get_r_ss(alpha_used, y_ss, L_0)
+      w_ss_new <- get_w_ss(alpha_used_2, y_ss_new, n_ss_new)
+      r_ss_new <- get_r_ss(alpha_used_2, y_ss_new, L_2)
+      
+      data.frame(
+        "Variable"=c("Konsum", "Bevölkerung", "Produktion", "Lohn", "Landrente"),
+        "Gleichgewichtswert_alt"=c(c_ss, n_ss, y_ss, w_ss, r_ss),
+        "Gleichgewichtswert_neu"=c(c_ss_new, n_ss_new, y_ss_new, w_ss_new, r_ss_new)
+        ) %>%
+        dplyr::mutate(Differenz=Gleichgewichtswert_neu-Gleichgewichtswert_alt)
+    } else{
+      birth_rate <- input$birth_rate
+      death_rate <- function(consumption){input$death_rate-log(consumption)}
+      g_c <- function(consumption, birthrate){birthrate - death_rate(consumption)}
+      G_c <- function(consumption, birthrate){1 + g_c(consumption, birthrate)}
+      
+      L_0 <- input$L_0
+      N_0 <- input$N_0
+      tfp <- input$tfp
+      alpha_used <- input$alpha_used
+      
+      get_c_ss <- function(birth_rate){
+        g_c_1 <- function(consumption, birthrate){G_c(consumption, birthrate) - 1}
+        uniroot(g_c_1, interval = c(0, 10), extendInt = "yes", 
+                birthrate=birth_rate)$root
+      }
+      c_ss <- get_c_ss(birth_rate)
+      
+      interval_check <- seq(0, 2, 0.05)
+      
+      total_consumption <- function(pop_total, consumption_total){
+        pop_total*consumption_total
+      }
+      
+      n_ss <- uniroot(function(x) total_consumption(
+        x, consumption_total=c_ss)-production(
+          population=x, 
+          total_factor_productivity=tfp, 
+          land=L_0, 
+          alpha_value = alpha_used), 
+        c(0.5, 1.5), extendInt = "yes")$root
+      
+      y_ss <- production(
+        population=n_ss, 
+        total_factor_productivity=tfp, 
+        land=L_0, 
+        alpha_value = alpha_used)
+      
+      get_w_ss <- function(alpha_values, y_t, n_t){
+        (1-alpha_values) * (y_t/n_t)
+      }
+      
+      get_r_ss <- function(alpha_values, y_t, l_t){
+        alpha_values*(y_t/l_t)
+      }
+      
+      w_ss <- get_w_ss(alpha_used, y_ss, n_ss)
+      r_ss <- get_r_ss(alpha_used, y_ss, L_0)
+      
+      data.frame(
+        Variable=c("Konsum", "Bevölkerung", "Produktion", "Lohn", "Landrente"),
+        Gleichgewichtswert=c(c_ss, n_ss, y_ss, w_ss, r_ss))
+    } 
+  })
+  
+  output$equil_values <- renderTable({
+    equil_values()
   })
   
   output$downloadPlot <- downloadHandler(
