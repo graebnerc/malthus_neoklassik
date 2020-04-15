@@ -52,8 +52,8 @@ $G(c_t)=1+g(c_t)$
 Wir haben also:
 
 \begin{align}
-N_{t+1} = N_t(1+g(c_t))\\
-N_{t+1} = N_tG(c_t)
+N_{t+1} &= N_t(1+g(c_t))\\
+N_{t+1} &= N_tG(c_t)
 \end{align}
 
 ```{r}
@@ -186,7 +186,7 @@ Nullstellen einer Funktion finden können.
 test_f <- function(x){
   x - 1
 }
-uniroot(test_f, interval = c(-5, 5))
+uniroot(test_f, interval = c(-5, 5), extendInt = "yes")
 ```
 
 Da wir hier aber den Input suchen für den $G(c)$ den Wert 1 annimmt definieren
@@ -209,9 +209,12 @@ ggplot(data.frame(x=c(0,5)), aes(x)) +
   ggtitle("Gleichgewichtskonsum") +
   scale_y_continuous(expand = expansion()) +
   xlab("Konsum") + ylab(TeX("$N_{t+1}/N_t$")) +
-  geom_segment(aes(x = -Inf, y = 1, xend = c_ss, yend = 1), linetype="dashed") +
-  geom_segment(aes(x = c_ss, y = -Inf, xend = c_ss, yend = 1), linetype="dashed") +
-  theme_bw() + theme(panel.border = element_blank(), axis.line = element_line())
+  geom_segment(aes(x = -Inf, y = 1, xend = c_ss, yend = 1), 
+               linetype="dashed") +
+  geom_segment(aes(x = c_ss, y = -Inf, xend = c_ss, yend = 1), 
+               linetype="dashed") +
+  theme_bw() + theme(panel.border = element_blank(),
+                     axis.line = element_line())
 ```
 
 
@@ -236,7 +239,7 @@ n_ss <- uniroot(function(x) total_consumption(
     total_factor_productivity=tfp, 
     land=L_0, 
     alpha_value = alpha_used), 
-  c(0.5, 1.5))$root
+  c(0.5, 1.5), extendInt = "yes")$root
 
 y_ss <- production(
     population=n_ss, 
@@ -253,8 +256,10 @@ ggplot(data.frame(x=c(0, 2)), aes(x)) +
   ggtitle("Das Bevölkerungsgleichgewicht") +
   scale_y_continuous(expand = expansion()) +
   xlab("Bevölkerung") + ylab(TeX("$Y_t$")) +
-  geom_segment(aes(x = -Inf, y = y_ss, xend = n_ss, yend = y_ss), linetype="dashed") +
-  geom_segment(aes(x = n_ss, y = -Inf, xend = n_ss, yend = y_ss), linetype="dashed") +
+  geom_segment(aes(x = -Inf, y = y_ss, xend = n_ss, yend = y_ss), 
+               linetype="dashed") +
+  geom_segment(aes(x = n_ss, y = -Inf, xend = n_ss, yend = y_ss), 
+               linetype="dashed") +
   geom_abline(intercept = 0, slope = c_ss) +
   theme_bw() + theme(panel.border = element_blank(), 
                      axis.line = element_line())
@@ -265,7 +270,12 @@ Nun können wir die noch fehlenden Faktorpreise berechnen:
 
 ```{r}
 w_ss <- get_w_ss(alpha_used, y_ss, n_ss)
+w_ss
+```
+
+```{r}
 r_ss <- get_r_ss(alpha_used, y_ss, L_0)
+r_ss
 ```
 
 ## Statische Gleichgewichtsanalye
@@ -337,8 +347,10 @@ ggplot(data.frame(x=c(0,5)), aes(x)) +
   scale_y_continuous(expand = expansion()) +
   xlab("Konsum") + ylab(TeX("$N_{t+1}/N_t$")) +
   geom_hline(yintercept = 1) + 
-  geom_vline(xintercept = c_ss, color="#61a27c") +
-  geom_vline(xintercept = c_ss_new, color="#b8103b") +
+  geom_segment(aes(x = c_ss, y = -Inf, xend = c_ss, yend = 1), 
+               linetype="dashed", color="#61a27c") +
+  geom_segment(aes(x = c_ss_new, y = -Inf, xend = c_ss_new, yend = 1), 
+               linetype="dashed", color="#b8103b") +
   theme_bw() + theme(panel.border = element_blank(), 
                      axis.line = element_line(), 
                      legend.title = element_blank())
@@ -347,10 +359,26 @@ ggplot(data.frame(x=c(0,5)), aes(x)) +
 Und ein geringeres Populationsniveau im Gleichgewicht:
 
 ```{r}
+n_ss_new <- uniroot(function(x) total_consumption(
+  x, consumption_total=c_ss_new)-production(
+    population=x, 
+    total_factor_productivity=tfp, 
+    land=L_0, 
+    alpha_value = alpha_used), 
+  c(0.5, 1.5), extendInt = "yes")$root
+
+y_ss_new <- production(
+    population=n_ss_new, 
+    total_factor_productivity=tfp, 
+    land=L_0, 
+    alpha_value = alpha_used)
+```
+
+```{r}
 ggplot(data.frame(x=c(0,2)), aes(x)) + 
   stat_function(fun=production, args = list(total_factor_productivity = tfp, 
                                             land=L_0, alpha_value=alpha_used)) + 
-  ggtitle("Die Produktionsfunktion") +
+  ggtitle("Das Bevölkerungsgleichgewicht") +
   scale_y_continuous(expand = expansion()) +
   xlab("Bevölkerung") + ylab(TeX("$Y_t$")) +
   geom_abline(aes(intercept = 0, slope = c_ss, color="alt"), 
@@ -358,6 +386,14 @@ ggplot(data.frame(x=c(0,2)), aes(x)) +
   geom_abline(aes(intercept = 0, slope = c_ss_new, color="neu"), 
               key_glyph = "rect") +
   scale_colour_manual(values = c("#61a27c", "#b8103b")) +
+  geom_segment(aes(x = -Inf, y = y_ss, xend = n_ss, yend = y_ss), 
+               linetype="dashed", color="#61a27c") +
+  geom_segment(aes(x = n_ss, y = -Inf, xend = n_ss, yend = y_ss), 
+               linetype="dashed", color="#61a27c") +
+  geom_segment(aes(x = -Inf, y = y_ss_new, xend = n_ss_new, yend = y_ss_new), 
+               linetype="dashed", color="#b8103b") +
+  geom_segment(aes(x = n_ss_new, y = -Inf, xend = n_ss_new, yend = y_ss_new), 
+               linetype="dashed", color="#b8103b") +
   theme_bw() + theme(panel.border = element_blank(), 
                      axis.line = element_line(), 
                      legend.title = element_blank())
@@ -371,18 +407,43 @@ im Sinne des Konsums reicheren Bevölkerung.
 Unmittelbar können wir bei einer technologischen Innovation keinen Effekt auf
 die Bevölkerungsentwicklung beobachten. 
 Daraus ergibt sich auch, dass sich am Konsum im Gleichgewicht nichts ändert.
-Allerings verschiebt sich die Produktionskurve nach oben, weswegen wir im 
+Allerdings verschiebt sich die Produktionskurve nach oben, weswegen wir im 
 Gleichgewicht ein höheres Bevölkerungslevel erreichen:
+
+```{r}
+tfp_new <- tfp+0.25
+n_ss_new2 <- uniroot(function(x) total_consumption(
+  x, consumption_total=c_ss)-production(
+    population=x, 
+    total_factor_productivity=tfp_new, 
+    land=L_0, 
+    alpha_value = alpha_used), 
+  c(0.5, 1.5), extendInt = "yes")$root
+
+y_ss_new2 <- production(
+    population=n_ss_new2, 
+    total_factor_productivity=tfp_new, 
+    land=L_0, 
+    alpha_value = alpha_used)
+```
 
 ```{r, warning=FALSE}
 ggplot(data.frame(x=c(0,2)), aes(x)) + 
   stat_function(fun=production, args = list(total_factor_productivity = tfp, 
                                             land=L_0, alpha_value=alpha_used), 
                 aes(color="alt"), key_glyph = "rect") + 
-  stat_function(fun=production, args = list(total_factor_productivity = tfp+0.25, 
+  stat_function(fun=production, args = list(total_factor_productivity = tfp_new, 
                                             land=L_0, alpha_value=alpha_used), 
                 aes(color="neu"), key_glyph = "rect") + 
   scale_colour_manual(values = c("#61a27c", "#b8103b")) +
+  geom_segment(aes(x = -Inf, y = y_ss, xend = n_ss, yend = y_ss), 
+               linetype="dashed", color="#61a27c") +
+  geom_segment(aes(x = n_ss, y = -Inf, xend = n_ss, yend = y_ss), 
+               linetype="dashed", color="#61a27c") +
+  geom_segment(aes(x = -Inf, y = y_ss_new2, xend = n_ss_new2, yend = y_ss_new2), 
+               linetype="dashed", color="#b8103b") +
+  geom_segment(aes(x = n_ss_new2, y = -Inf, xend = n_ss_new2, yend = y_ss_new2), 
+               linetype="dashed", color="#b8103b") +
   ggtitle("Die Produktionsfunktion") +
   scale_y_continuous(expand = expansion()) +
   xlab("Bevölkerung") + ylab(TeX("$Y_t$")) +
@@ -392,6 +453,6 @@ ggplot(data.frame(x=c(0,2)), aes(x)) +
                      legend.title = element_blank())
 ```
 
-Insgesamt führ technologische Innovation hier also zu einem Bevölkerungswachstum
+Insgesamt führt technologische Innovation hier also zu einem Bevölkerungswachstum
 ohne den pro-Kopf-Wohlstand zu erhöhen.
 

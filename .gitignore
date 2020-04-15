@@ -5,3 +5,12 @@
 *.log
 *.md
 tmp*
+.DS_Store
+garbage
+quellen
+R
+beschreibung/*malthus_notes*
+beschreibung/*.out
+beschreibung/*.toc
+beschreibung/malthus_neoklassik.tex
+deploy_app.R
