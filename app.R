@@ -195,8 +195,13 @@ server <- function(input, output) {
         uniroot(g_c_1, interval = c(0, 10), extendInt = "yes", birthrate=birth_rate)$root
       }
       
+      get_c_ss_new <- function(birth_rate){
+        g_c_1 <- function(consumption, birthrate){G_c_2(consumption, birthrate) - 1}
+        uniroot(g_c_1, interval = c(0, 10), extendInt = "yes", birthrate=birth_rate_2)$root
+      }
+      
       c_ss <- get_c_ss(birth_rate)
-      c_ss_new <- get_c_ss(birth_rate_2)
+      c_ss_new <- get_c_ss_new(birth_rate_2)
       
       ggplot(data.frame(x=c(0,5)), aes(x)) + 
         stat_function(fun=G_c, args = list(birthrate = birth_rate),
