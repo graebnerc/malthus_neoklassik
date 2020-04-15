@@ -1,6 +1,8 @@
 library(shiny)
 library(ggplot2)
 library(latex2exp)
+library(magrittr)
+library(ggpubr)
 
 # N_0 <- 1
 # L_0 <- 1
@@ -14,8 +16,8 @@ library(latex2exp)
 ui <- fluidPage(
   withMathJax(),
    titlePanel("Ein Malthusianisches Wachstumsmodell neoklassischer Art"),
-   sidebarLayout(
-     sidebarPanel = sidebarPanel(
+  fluidRow(
+    column(4,
        checkboxInput("compa_cases", "Komparativ-statische Analyse?", value = F),
        sliderInput("N_0", 
                    label='Bevölkerungsniveau \\( N_0 \\)',
@@ -23,7 +25,7 @@ ui <- fluidPage(
        helpText("Startwert Faktor Bevölkerung (endogen)"),
        sliderInput("L_0", 
                    label='Parameter \\( L_0 \\)',
-                 min = 1.0, max = 1.7, step=0.05, value = 1.0),
+                 min = 0.5, max = 1.5, step=0.1, value = 1.0),
        helpText("Faktor Land (fix)"),
               sliderInput("birth_rate", 
                    label='Parameter \\( b \\)',
@@ -35,20 +37,24 @@ ui <- fluidPage(
        helpText("Sterberate"),
        sliderInput("tfp", 
                    label='Parameter \\( A \\)',
-                   min = 0.65, max = 1.0, step=0.01, value = 0.8),
+                   min = 0.5, max = 1.5, step=0.01, value = 1.0),
        helpText("Totale Faktorproduktivität"),
        sliderInput("alpha_used", 
                    label='Parameter \\( \\alpha \\)',
                    min = 0.1, max = 0.9, step=0.1, value = 0.6),
        helpText("Outputelastizität für Faktor Land")
        ),
-     mainPanel = mainPanel(
+     column(4,
        plotOutput("pop_plot"),
-       plotOutput("prod_plot"),
+       plotOutput("prod_plot")),
+    column(4,
        plotOutput("consumption_plot"),
-       plotOutput("population_plot"),
-       p("Dabei ergeben sich folgende Gleichgewichtswerte:"),
-       tableOutput("equil_values"),
+       plotOutput("population_plot")),
+    column(4),
+    column(8,
+           downloadButton("downloadPlot", "Download der Abbildungen im PDF Format"),
+           p("Dabei ergeben sich folgende Gleichgewichtswerte:"),
+           tableOutput("equil_values"),
        #uiOutput('f1'),
        #uiOutput('f2'),
        p("Eine genaue Beschreibung des Modelles und der Implementierung in R finden Sie im Begleitdokument (Moodle oder Github).")
@@ -115,7 +121,7 @@ server <- function(input, output) {
     
     get_c_ss <- function(birth_rate){
       g_c_1 <- function(consumption, birthrate){G_c(consumption, birthrate) - 1}
-      uniroot(g_c_1, interval = c(0, 10), birthrate=birth_rate)$root
+      uniroot(g_c_1, interval = c(0, 10), extendInt = "yes", birthrate=birth_rate)$root
     }
     
     c_ss <- get_c_ss(birth_rate)
@@ -134,8 +140,21 @@ server <- function(input, output) {
   })
   population_plot <- reactive({
     L_0 <- input$L_0
+    N_0 <- input$N_0
     tfp <- input$tfp
     alpha_used <- input$alpha_used
+    birth_rate <- input$birth_rate
+    
+    death_rate <- function(consumption){input$death_rate-log(consumption)}
+    g_c <- function(consumption, birthrate){birthrate - death_rate(consumption)}
+    G_c <- function(consumption, birthrate){1 + g_c(consumption, birthrate)}
+    
+    get_c_ss <- function(birth_rate){
+      g_c_1 <- function(consumption, birthrate){G_c(consumption, birthrate) - 1}
+      uniroot(g_c_1, interval = c(0, 10), extendInt = "yes", birthrate=birth_rate)$root
+    }
+    
+    c_ss <- get_c_ss(birth_rate)
     
     interval_check <- seq(0, 2, 0.05)
     
@@ -149,7 +168,7 @@ server <- function(input, output) {
         total_factor_productivity=tfp, 
         land=L_0, 
         alpha_value = alpha_used), 
-      c(0.5, 1.5))$root
+      c(0.5, 2.5), extendInt = "yes")$root
     
     y_ss <- production(
       population=n_ss, 
@@ -186,7 +205,7 @@ server <- function(input, output) {
     
     get_c_ss <- function(birth_rate){
       g_c_1 <- function(consumption, birthrate){G_c(consumption, birthrate) - 1}
-      uniroot(g_c_1, interval = c(0, 10), birthrate=birth_rate)$root
+      uniroot(g_c_1, interval = c(0, 10), extendInt = "yes", birthrate=birth_rate)$root
     }
     c_ss <- get_c_ss(birth_rate)
     
@@ -202,7 +221,7 @@ server <- function(input, output) {
         total_factor_productivity=tfp, 
         land=L_0, 
         alpha_value = alpha_used), 
-      c(0.5, 1.5))$root
+      c(0.5, 1.5), extendInt = "yes")$root
     
     y_ss <- production(
       population=n_ss, 
@@ -225,6 +244,20 @@ server <- function(input, output) {
       Variable=c("Konsum", "Bevölkerung", "Produktion", "Lohn", "Landrente"),
       Gleichgewichtswert=c(c_ss, n_ss, y_ss, w_ss, r_ss))
   })
+  
+  output$downloadPlot <- downloadHandler(
+    filename = function() {
+      paste("malthus.pdf", sep = "")
+    },
+    content = function(file) {
+      full_plot <- ggarrange(pop_plot(), consumption_plot(), 
+                             prod_plot(), population_plot(), 
+                             ncol = 2, nrow = 2,
+                             labels = paste0(LETTERS[1:4], ")"), 
+                             font.label = list(face="bold"))
+      ggsave(file, plot = full_plot, width = 8, height = 6)
+    }
+  )
 }
 
 shinyApp(ui = ui, server = server)
