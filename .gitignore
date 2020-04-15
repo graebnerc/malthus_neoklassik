@@ -4,6 +4,7 @@
 .Ruserdata
 *.log
 *.md
+!README.md
 tmp*
 .DS_Store
 garbage
