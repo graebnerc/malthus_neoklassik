@@ -4,21 +4,13 @@ library(latex2exp)
 library(magrittr)
 library(ggpubr)
 
-# N_0 <- 1
-# L_0 <- 1
-# birth_rate <- 0.03
-# death_rate <- function(consumption){0.01-log(consumption)}
-# g_c <- function(consumption, birthrate){birthrate - death_rate(consumption)}
-# G_c <- function(consumption, birthrate){1 + g_c(consumption, birthrate)}
-# tfp <- 1.0
-# alpha_used <- 0.75
-
 ui <- fluidPage(
   withMathJax(),
    titlePanel("Ein Malthusianisches Wachstumsmodell neoklassischer Art"),
   fluidRow(
     column(4,
        checkboxInput("compa_cases", "Komparativ-statische Analyse?", value = F),
+       h3("Ausgangsszenario"),
        sliderInput("N_0", 
                    label='Bevölkerungsniveau \\( N_0 \\)',
                    min = 0.25, max = 2, step=0.05, value = 1.0),
@@ -42,7 +34,35 @@ ui <- fluidPage(
        sliderInput("alpha_used", 
                    label='Parameter \\( \\alpha \\)',
                    min = 0.1, max = 0.9, step=0.1, value = 0.6),
-       helpText("Outputelastizität für Faktor Land")
+       helpText("Outputelastizität für Faktor Land"),
+       conditionalPanel(
+         h3("Alternativszenario"),
+         condition = "input.compa_cases==1",
+         sliderInput("N_2", 
+                     label='Bevölkerungsniveau \\( N_2 \\)',
+                     min = 0.25, max = 2, step=0.05, value = 1.0),
+         helpText("Startwert Faktor Bevölkerung (endogen)"),
+         sliderInput("L_2", 
+                     label='Parameter \\( L_2 \\)',
+                     min = 0.5, max = 1.5, step=0.1, value = 1.0),
+         helpText("Faktor Land (fix)"),
+         sliderInput("birth_rate_2", 
+                     label='Parameter \\( b_2 \\)',
+                     min = 0, max = 0.8, step=0.01, value = 0.03),
+         helpText("Geburtenrate"),
+         sliderInput("death_rate_2", 
+                     label='Parameter \\( d_2 \\)',
+                     min = 0.0, max = 0.8, step=0.01, value = 0.04),
+         helpText("Sterberate"),
+         sliderInput("tfp_2", 
+                     label='Parameter \\( A_2 \\)',
+                     min = 0.5, max = 1.5, step=0.01, value = 1.0),
+         helpText("Totale Faktorproduktivität"),
+         sliderInput("alpha_used_2", 
+                     label='Parameter \\( \\alpha_2 \\)',
+                     min = 0.1, max = 0.9, step=0.1, value = 0.6),
+         helpText("Outputelastizität für Faktor Land")
+       )
        ),
      column(4,
        plotOutput("pop_plot"),
@@ -55,22 +75,12 @@ ui <- fluidPage(
            downloadButton("downloadPlot", "Download der Abbildungen im PDF Format"),
            p("Dabei ergeben sich folgende Gleichgewichtswerte:"),
            tableOutput("equil_values"),
-       #uiOutput('f1'),
-       #uiOutput('f2'),
-       p("Eine genaue Beschreibung des Modelles und der Implementierung in R finden Sie im Begleitdokument (Moodle oder Github).")
+       p("Eine genaue Beschreibung des Modelles und der Implementierung in R finden Sie im Begleitdokument (Moodle oder auf Github im Ordner `beschreibung`).")
        )
      )
    )
 
 server <- function(input, output) {
-  # output$f1 <- renderUI({
-  #   withMathJax(
-  #     helpText('$$\\frac{\\partial N}{\\partial t} = \\gamma WN - \\delta N$$'))
-  # })
-  # output$f2 <- renderUI({
-  #   withMathJax(
-  #     helpText('$$\\frac{\\partial W}{\\partial t} = (1+\\alpha) W + \\beta WN - \\delta W$$'))
-  # })
   production <- function(total_factor_productivity, land, population, alpha_value){
     total_factor_productivity * land**alpha_value * population**(1-alpha_value)
   }
