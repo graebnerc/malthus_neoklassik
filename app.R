@@ -11,11 +11,13 @@ ui <- fluidPage(
   fluidRow(
     column(4,
        checkboxInput("compa_cases", "Komparativ-statische Analyse?", value = F),
+       checkboxInput("show_init_pop", "Ausgangswert der Bevölkerung anzeigen?", 
+                     value = F),
        h3("Ausgangsszenario"),
        sliderInput("N_0", 
                    label='Ausgangsniveau Bevölkerung \\( N_0 \\)',
                    min = 0.25, max = 2, step=0.05, value = 1.0),
-       helpText("StarAusgangsniveauwert Faktor Bevölkerung (endogen)"),
+       helpText("Ausgangsniveauwert Faktor Bevölkerung (endogen)"),
        sliderInput("L_0", 
                    label='Parameter \\( L_0 \\)',
                  min = 0.5, max = 1.5, step=0.1, value = 1.0),
@@ -79,7 +81,12 @@ ui <- fluidPage(
            h3("Beschreibung des Modells"),
        p("Eine genaue Beschreibung des Modelles und der Implementierung in R finden Sie im Begleitdokument (Moodle oder auf Github im Ordner 'beschreibung')."),
        h3("Benutzung der App"),
-       p("Parameterwerte können auf der linken Seite geändert werden. Wenn Sie zwei Gleichgewichte in einer komparativ-statischen Analyse vergleichen wollen setzen Sie den Haken bei 'Komparativ-statische Analyse'. Dann können Sie mehrere Szenarien grafisch und quantitativ vergleichen. Der Download Button unter der Abbildung erlaubt Ihnen die aktuelle Version der Abbildungen als PDF herunterzuladen.")
+       p("Parameterwerte können auf der linken Seite geändert werden. Wenn Sie zwei Gleichgewichte in einer komparativ-statischen Analyse vergleichen wollen setzen Sie den Haken bei 'Komparativ-statische Analyse'. Dann können Sie mehrere Szenarien grafisch und quantitativ vergleichen. Der Download Button unter der Abbildung erlaubt Ihnen die aktuelle Version der Abbildungen als PDF herunterzuladen."),
+       h3("Leitfragen"),
+       p("1. Was impliziert eine Veränderung in der Sterberate, z.B. durch einen Virus?"),
+       p("2. Was ist der Effekt eines Anstiegs der Geburtenrate?"),
+       p("3. Wie zeigt sich eine Änderung der TFP durch eine technische Innovation?"),
+       p("4. Welche Rolle spielt der Ausgangswert für die Bevölkerungsgröße? Warum?")
        )
      )
    )
@@ -109,7 +116,7 @@ server <- function(input, output) {
                       aes(color="neu"), key_glyph = "rect") +
         scale_color_manual(values = c(orig_color, alt_color)) +
         ggtitle(TeX("Die Bevölkerungswachstumsfunktion $G(c_t)$")) +
-        xlab("Konsum") + ylab(TeX("$N_{t+1}/N_t$")) +
+        xlab("Konsum") + ylab(TeX("Veränderungsrate der Bevölkerung: $N_{t+1}/N_t$")) +
         scale_y_continuous(expand = expansion()) +
         theme_bw() + theme(panel.border = element_blank(), 
                            axis.line = element_line(), 
@@ -123,7 +130,7 @@ server <- function(input, output) {
       ggplot(data.frame(x=c(0,5)), aes(x)) + 
         stat_function(fun=G_c, args = list(birthrate = birth_rate)) + 
         ggtitle(TeX("Die Bevölkerungswachstumsfunktion $G(c_t)$")) +
-        xlab("Konsum") + ylab(TeX("$N_{t+1}/N_t$")) +
+        xlab("Konsum") + ylab(TeX("Veränderungsrate der Bevölkerung:$N_{t+1}/N_t$")) +
         scale_y_continuous(expand = expansion()) +
         theme_bw() + theme(panel.border = element_blank(), 
                            axis.line = element_line())
@@ -136,6 +143,7 @@ server <- function(input, output) {
   })
   
   prod_plot <- reactive({
+    show_init_pop <- input$show_init_pop
     if (input$compa_cases){
       L_0 <- input$L_0
       L_2 <- input$L_2
@@ -146,7 +154,7 @@ server <- function(input, output) {
       alpha_used <- input$alpha_used
       alpha_used_2 <- input$alpha_used_2
       
-      ggplot(data.frame(x=c(0,2)), aes(x)) + 
+      plot_object <- ggplot(data.frame(x=c(0,2)), aes(x)) + 
         stat_function(fun=production, 
                       args = list(total_factor_productivity = tfp, 
                                   land=L_0, alpha_value=alpha_used),
@@ -158,7 +166,7 @@ server <- function(input, output) {
         scale_color_manual(values = c(orig_color, alt_color)) +
         ggtitle("Die Produktionsfunktion") +
         scale_y_continuous(expand = expansion()) +
-        xlab("Bevölkerung") + ylab(TeX("$Y_t$")) +
+        xlab("Bevölkerung") + ylab(TeX("Output $Y_t$")) +
         theme_bw() + theme(panel.border = element_blank(), 
                            axis.line = element_line(), 
                            legend.title = element_blank())
@@ -168,16 +176,23 @@ server <- function(input, output) {
       tfp <- input$tfp
       alpha_used <- input$alpha_used
       
-      ggplot(data.frame(x=c(0,2)), aes(x)) + 
+      plot_object <- ggplot(data.frame(x=c(0,2)), aes(x)) + 
         stat_function(fun=production, args = list(total_factor_productivity = tfp, 
                                                   land=L_0, alpha_value=alpha_used)) + 
         ggtitle("Die Produktionsfunktion") +
         scale_y_continuous(expand = expansion()) +
-        xlab("Bevölkerung") + ylab(TeX("$Y_t$")) +
+        xlab("Bevölkerung") + ylab(TeX("Output $Y_t$")) +
         theme_bw() + theme(panel.border = element_blank(), 
                            axis.line = element_line())
     }
-
+    
+    if (show_init_pop){
+      plot_object <- plot_object + 
+        geom_vline(xintercept = N_0, color="#004c93") +
+        annotate(geom="text", label=TeX("$N_0$"), 
+                 x = N_0+0.05, y=0.125, color="#004c93")
+    }
+    plot_object
   })
   output$prod_plot <- renderPlot({
     prod_plot()
@@ -215,7 +230,7 @@ server <- function(input, output) {
         scale_color_manual(values = c(orig_color, alt_color)) +
         ggtitle("Gleichgewichtskonsum") +
         scale_y_continuous(expand = expansion()) +
-        xlab("Konsum") + ylab(TeX("$N_{t+1}/N_t$")) +
+        xlab("Konsum") + ylab(TeX("Veränderungsrate der Bevölkerung: $N_{t+1}/N_t$")) +
         geom_segment(aes(x = -Inf, y = 1, xend = c_ss, yend = 1), 
                      linetype="dashed", color=orig_color) +
         geom_segment(aes(x = c_ss, y = -Inf, xend = c_ss, yend = 1), 
@@ -244,7 +259,7 @@ server <- function(input, output) {
         stat_function(fun=G_c, args = list(birthrate = birth_rate)) + 
         ggtitle("Gleichgewichtskonsum") +
         scale_y_continuous(expand = expansion()) +
-        xlab("Konsum") + ylab(TeX("$N_{t+1}/N_t$")) +
+        xlab("Konsum") + ylab(TeX("Veränderungsrate der Bevölkerung: $N_{t+1}/N_t$")) +
         geom_segment(aes(x = -Inf, y = 1, xend = c_ss, yend = 1), linetype="dashed") +
         geom_segment(aes(x = c_ss, y = -Inf, xend = c_ss, yend = 1), linetype="dashed") +
         theme_bw() + theme(panel.border = element_blank(), axis.line = element_line())
@@ -255,6 +270,7 @@ server <- function(input, output) {
     consumption_plot()
   })
   population_plot <- reactive({
+    show_init_pop <- input$show_init_pop
     if (input$compa_cases){
       L_0 <- input$L_0
       L_2 <- input$L_2
@@ -321,7 +337,7 @@ server <- function(input, output) {
         land=L_2, 
         alpha_value = alpha_used_2)
       
-      ggplot(data.frame(x=c(0, 2)), aes(x)) + 
+      plot_object <- ggplot(data.frame(x=c(0, 2)), aes(x)) + 
         stat_function(fun=production, 
                       args = list(total_factor_productivity = tfp, 
                                   land=L_0, alpha_value=alpha_used),
@@ -389,18 +405,25 @@ server <- function(input, output) {
         land=L_0, 
         alpha_value = alpha_used)
       
-      ggplot(data.frame(x=c(0, 2)), aes(x)) + 
+      plot_object <- ggplot(data.frame(x=c(0, 2)), aes(x)) + 
         stat_function(fun=production, args = list(total_factor_productivity = tfp, 
                                                   land=L_0, alpha_value=alpha_used)) + 
         ggtitle("Das Bevölkerungsgleichgewicht") +
         scale_y_continuous(expand = expansion()) +
-        xlab("Bevölkerung") + ylab(TeX("$Y_t$")) +
+        xlab("Bevölkerung") + ylab(TeX("Output: $Y_t$")) +
         geom_segment(aes(x = -Inf, y = y_ss, xend = n_ss, yend = y_ss), linetype="dashed") +
         geom_segment(aes(x = n_ss, y = -Inf, xend = n_ss, yend = y_ss), linetype="dashed") +
         geom_abline(intercept = 0, slope = c_ss) +
         theme_bw() + theme(panel.border = element_blank(), 
                            axis.line = element_line())
     }
+    if (show_init_pop){
+      plot_object <- plot_object + 
+        geom_vline(xintercept = N_0, color="#004c93") +
+        annotate(geom="text", label=TeX("$N_0$"), 
+                 x = N_0+0.05, y=0.125, color="#004c93")
+    }
+    plot_object
   })
   output$population_plot <- renderPlot({
     population_plot()
