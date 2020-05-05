@@ -584,7 +584,7 @@ server <- function(input, output) {
                              ncol = 2, nrow = 2,
                              labels = paste0(LETTERS[1:4], ")"), 
                              font.label = list(face="bold"))
-      ggsave(file, plot = full_plot, width = 8, height = 6)
+      ggsave(file, plot = full_plot, width = 10, height = 8)
     }
   )
 }
