@@ -20,13 +20,10 @@ knitr::opts_chunk$set(out.height = '75%', out.width = '75%', fig.align = 'center
 # Einführung
 
 Dieses Dokument beschreibt eine neoklassische Variante des Malthus Wachstumsmodells.
-Dabei folge ich im Groben der Darstellung in @txtbook und führe das Modell
-ohne den Kapitalakkumulationsprozess ein.
-
 Neben der Einführung in das Modell soll dabei auch die Implementierung in 
-R vermittelt werden. 
+R erkäutert werden. 
 Das in diesem Text eingeführte Modell bildet auch die Grundlage für die
-Shiny-App, welche die Vorlesung zum Malthus ergänzt.
+Shiny-App, welche die Vorlesung zu Malthus ergänzt.
 
 Die folgenden R-Pakete werden dabei im Text verwendet:
 
@@ -80,10 +77,10 @@ ggplot(data.frame(x=c(0,5)), aes(x)) +
 Wir nehmen eine typische neoklassische Produktionsfunktion mit 
 konstanten Skalenerträgen und abnehmendem Grenzertrag für jeden separaten 
 Produktionsfaktor an.
-Die Produktionsfaktoren sind für Jetzt Arbeit und Boden, wobei 
+Die Produktionsfaktoren sind Arbeit und Boden, wobei 
 letzterer fix durch $L=L_t\forall t$ und erster durch die Bevölkerung $N_t$ 
 gegeben ist. 
-Entsprechend sei die Produktionsfunktion gegeben durch:
+Entsprechend ist die Produktionsfunktion gegeben durch:
 
 $$Y_t = A L^\alpha N_t^{1-\alpha}$$
 
@@ -169,7 +166,7 @@ get_r_ss <- function(alpha_values, y_t, l_t){
 
 ### Gleichgewicht
 
-Da die Bevölkerung im Gliechgewichtspfad konstant ist muss gelten:
+Da die Bevölkerung im Gleichgewichtspfad konstant ist muss gelten:
 
 $$N_{t+1}=N_t=N^*$$
 
@@ -294,165 +291,10 @@ tfp <- 1.0
 alpha_used <- 0.75
 ```
 
+Die folgenden Fragestellungen können Sie nun selbst mit der App beantworten.
+
+### Effekt eines erhöhten Ausgangsniveaus der Bevölkerung
 
 ### Effekt von erhöhter Sterblichkeit
 
-Eine erhöhte Sterblichkeit hat unmittelbare Auswirkungen auf $G(c_t)$:
-für jedes Konsumlevel wächst die Bevölkerung weniger stark, da mehr Menschen
-sterben:
-
-```{r}
-death_rate_new <- function(consumption){0.5-log(consumption)}
-g_c_new <- function(consumption, birthrate){birthrate - death_rate_new(consumption)}
-G_c_new <- function(consumption, birthrate){1 + g_c_new(consumption, birthrate)}
-```
-
-```{r, warning=FALSE}
-ggplot(data.frame(x=c(0,5)), aes(x)) + 
-  stat_function(fun=G_c, args = list(birthrate = birth_rate), 
-                aes(color="alt"), key_glyph = "rect") + 
-  stat_function(fun=G_c_new, args = list(birthrate = birth_rate), 
-                aes(color="neu"), key_glyph = "rect") + 
-  scale_colour_manual(values = c("#61a27c", "#b8103b")) +
-  ggtitle(TeX("Die Bevölkerungswachstumsfunktion $G(c_t)$")) +
-  xlab("Konsum") + ylab(TeX("$N_{t+1}/N_t$")) +
-  scale_y_continuous(expand = expansion()) +
-  theme_bw() + theme(panel.border = element_blank(), 
-                     axis.line = element_line(), 
-                     legend.title = element_blank())
-```
-
-Damit einher geht natürlich ein höheres Konsumlevel:
-
-```{r}
-get_c_ss_new <- function(birth_rate){
-  g_c_1 <- function(consumption, birthrate){G_c_new(consumption, birthrate) - 1}
-  uniroot(g_c_1, interval = c(0, 10), birthrate=birth_rate)$root
-}
-
-c_ss_new <- get_c_ss_new(birth_rate)
-print(paste0("Konsum alt: ", c_ss, " Konsum neu: ", c_ss_new))
-```
-
-Das sehen wir hier auch grafisch:
-
-```{r, warning=FALSE}
-ggplot(data.frame(x=c(0,5)), aes(x)) + 
-  stat_function(fun=G_c, args = list(birthrate = birth_rate), 
-                aes(color="alt"), key_glyph = "rect") + 
-  stat_function(fun=G_c_new, args = list(birthrate = birth_rate), 
-                aes(color="neu"), key_glyph = "rect") + 
-  scale_colour_manual(values = c("#61a27c", "#b8103b")) +
-  ggtitle("Gleichgewichtskonsum") +
-  scale_y_continuous(expand = expansion()) +
-  xlab("Konsum") + ylab(TeX("$N_{t+1}/N_t$")) +
-  geom_hline(yintercept = 1) + 
-  geom_segment(aes(x = c_ss, y = -Inf, xend = c_ss, yend = 1), 
-               linetype="dashed", color="#61a27c") +
-  geom_segment(aes(x = c_ss_new, y = -Inf, xend = c_ss_new, yend = 1), 
-               linetype="dashed", color="#b8103b") +
-  theme_bw() + theme(panel.border = element_blank(), 
-                     axis.line = element_line(), 
-                     legend.title = element_blank())
-```
-
-Und ein geringeres Populationsniveau im Gleichgewicht:
-
-```{r}
-n_ss_new <- uniroot(function(x) total_consumption(
-  x, consumption_total=c_ss_new)-production(
-    population=x, 
-    total_factor_productivity=tfp, 
-    land=L_0, 
-    alpha_value = alpha_used), 
-  c(0.5, 1.5), extendInt = "yes")$root
-
-y_ss_new <- production(
-    population=n_ss_new, 
-    total_factor_productivity=tfp, 
-    land=L_0, 
-    alpha_value = alpha_used)
-```
-
-```{r}
-ggplot(data.frame(x=c(0,2)), aes(x)) + 
-  stat_function(fun=production, args = list(total_factor_productivity = tfp, 
-                                            land=L_0, alpha_value=alpha_used)) + 
-  ggtitle("Das Bevölkerungsgleichgewicht") +
-  scale_y_continuous(expand = expansion()) +
-  xlab("Bevölkerung") + ylab(TeX("$Y_t$")) +
-  geom_abline(aes(intercept = 0, slope = c_ss, color="alt"), 
-              key_glyph = "rect") +
-  geom_abline(aes(intercept = 0, slope = c_ss_new, color="neu"), 
-              key_glyph = "rect") +
-  scale_colour_manual(values = c("#61a27c", "#b8103b")) +
-  geom_segment(aes(x = -Inf, y = y_ss, xend = n_ss, yend = y_ss), 
-               linetype="dashed", color="#61a27c") +
-  geom_segment(aes(x = n_ss, y = -Inf, xend = n_ss, yend = y_ss), 
-               linetype="dashed", color="#61a27c") +
-  geom_segment(aes(x = -Inf, y = y_ss_new, xend = n_ss_new, yend = y_ss_new), 
-               linetype="dashed", color="#b8103b") +
-  geom_segment(aes(x = n_ss_new, y = -Inf, xend = n_ss_new, yend = y_ss_new), 
-               linetype="dashed", color="#b8103b") +
-  theme_bw() + theme(panel.border = element_blank(), 
-                     axis.line = element_line(), 
-                     legend.title = element_blank())
-```
-
-Insgesamt führ eine erhöhte Sterblichkeitsrate also zu einer kleineren, aber
-im Sinne des Konsums reicheren Bevölkerung.
-
 ### Effekt von technologischer Innovation
-
-Unmittelbar können wir bei einer technologischen Innovation keinen Effekt auf
-die Bevölkerungsentwicklung beobachten. 
-Daraus ergibt sich auch, dass sich am Konsum im Gleichgewicht nichts ändert.
-Allerdings verschiebt sich die Produktionskurve nach oben, weswegen wir im 
-Gleichgewicht ein höheres Bevölkerungslevel erreichen:
-
-```{r}
-tfp_new <- tfp+0.25
-n_ss_new2 <- uniroot(function(x) total_consumption(
-  x, consumption_total=c_ss)-production(
-    population=x, 
-    total_factor_productivity=tfp_new, 
-    land=L_0, 
-    alpha_value = alpha_used), 
-  c(0.5, 1.5), extendInt = "yes")$root
-
-y_ss_new2 <- production(
-    population=n_ss_new2, 
-    total_factor_productivity=tfp_new, 
-    land=L_0, 
-    alpha_value = alpha_used)
-```
-
-```{r, warning=FALSE}
-ggplot(data.frame(x=c(0,2)), aes(x)) + 
-  stat_function(fun=production, args = list(total_factor_productivity = tfp, 
-                                            land=L_0, alpha_value=alpha_used), 
-                aes(color="alt"), key_glyph = "rect") + 
-  stat_function(fun=production, args = list(total_factor_productivity = tfp_new, 
-                                            land=L_0, alpha_value=alpha_used), 
-                aes(color="neu"), key_glyph = "rect") + 
-  scale_colour_manual(values = c("#61a27c", "#b8103b")) +
-  geom_segment(aes(x = -Inf, y = y_ss, xend = n_ss, yend = y_ss), 
-               linetype="dashed", color="#61a27c") +
-  geom_segment(aes(x = n_ss, y = -Inf, xend = n_ss, yend = y_ss), 
-               linetype="dashed", color="#61a27c") +
-  geom_segment(aes(x = -Inf, y = y_ss_new2, xend = n_ss_new2, yend = y_ss_new2), 
-               linetype="dashed", color="#b8103b") +
-  geom_segment(aes(x = n_ss_new2, y = -Inf, xend = n_ss_new2, yend = y_ss_new2), 
-               linetype="dashed", color="#b8103b") +
-  ggtitle("Die Produktionsfunktion") +
-  scale_y_continuous(expand = expansion()) +
-  xlab("Bevölkerung") + ylab(TeX("$Y_t$")) +
-  geom_abline(intercept = 0, slope = c_ss, color="black") +
-  theme_bw() + theme(panel.border = element_blank(), 
-                     axis.line = element_line(), 
-                     legend.title = element_blank())
-```
-
-Insgesamt führt technologische Innovation hier also zu einem Bevölkerungswachstum
-ohne den pro-Kopf-Wohlstand zu erhöhen.
-
