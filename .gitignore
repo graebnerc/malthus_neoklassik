@@ -14,4 +14,7 @@ beschreibung/*malthus_notes*
 beschreibung/*.out
 beschreibung/*.toc
 beschreibung/malthus_neoklassik.tex
+beschreibung/Malthus_Loesungsvorschlaege*
 deploy_app.R
+rsconnect
+Feedback-Jakob
