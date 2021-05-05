@@ -23,18 +23,12 @@ if (TRUE %in% versionstest){
   print("Super, Ihre Version von R ist ausreichend aktuell!")
 }
 
-install.packages(c('devtools', 'shiny', 'ggplot2', 'dplyr', 
-                   'latex2exp', 'magrittr', 'ggpubr'))
-
 if (!require(devtools)) install.packages('devtools')
 if (!require(shiny)) install.packages('shiny')
 if (!require(tidyverse)) install.packages('tidyverse')
 if (!require(magrittr)) install.packages('latex2exp')
 if (!require(magrittr)) install.packages('magrittr')
 if (!require(ggpubr)) install.packages('ggpubr')
-
-
-ggplot_version <- as.character(packageVersion("ggplot2"))
 
 ggplot_version <- as.character(packageVersion("ggplot2"))
 
